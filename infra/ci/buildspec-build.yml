@@ -1,0 +1,30 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+      python: 3.14
+    commands:
+      - python -m pip install uv==0.11.24
+      - uv pip install --system boto3==1.43.93
+      - npm ci --no-audit --no-fund
+      - npm --prefix "$CODEBUILD_SRC_DIR_frontend" ci --no-audit --no-fund
+      - uv pip install --system -r "$CODEBUILD_SRC_DIR_backend/requirements-tested.txt" -r "$CODEBUILD_SRC_DIR_backend/requirements-aws-test.txt"
+  build:
+    commands:
+      - python tools/check_policy.py
+      - python "$CODEBUILD_SRC_DIR_frontend/tools/check_policy.py"
+      - python "$CODEBUILD_SRC_DIR_backend/tools/check_policy.py"
+      - python -m pytest -q ci/tests
+      - npm test
+      - python -m pytest -q "$CODEBUILD_SRC_DIR_backend/tests"
+      - npm --prefix "$CODEBUILD_SRC_DIR_frontend" run build
+      - npm --prefix "$CODEBUILD_SRC_DIR_frontend" run build:preview
+      - npm --prefix "$CODEBUILD_SRC_DIR_frontend" test
+      - python ci/check_contract.py
+      - node platform-app.mjs
+      - python ci/package_release.py
+artifacts:
+  base-directory: release
+  files:
+    - '**/*'

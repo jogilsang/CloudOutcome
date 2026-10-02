@@ -1,0 +1,13 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - npm ci --no-audit --no-fund
+  build:
+    commands:
+      - npm test
+      - npm run synth:repositories
+# Hosting releases require an explicit reviewed OUTCOMELENS_PREVIEW artifact.
+# Test fixtures must never be used for a hosting deployment.

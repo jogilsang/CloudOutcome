@@ -1,0 +1,54 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudOutcome read-only access (role cloud_outcome_readonlyaccess): lists enabled Regions, Lambda, API Gateway and DynamoDB resources, their tags and CloudWatch metric names, and reads their CloudWatch metrics. No write, billing or data-plane access. Delete this stack to revoke access. For many accounts deploy it with CloudFormation StackSets.",
+  "Parameters": {
+    "ExternalIds": {
+      "Type": "CommaDelimitedList",
+      "Description": "External ID shown in CloudOutcome for your workspace (comma-separate several workspaces)"
+    },
+    "TrustedAccountId": {
+      "Type": "String",
+      "AllowedPattern": "\\d{12}",
+      "Description": "CloudOutcome AWS account ID shown in CloudOutcome"
+    }
+  },
+  "Resources": {
+    "ReadOnlyRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "cloud_outcome_readonlyaccess",
+        "MaxSessionDuration": 3600,
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {"AWS": {"Fn::Sub": "arn:${AWS::Partition}:iam::${TrustedAccountId}:root"}},
+            "Action": "sts:AssumeRole",
+            "Condition": {
+              "StringEquals": {"sts:ExternalId": {"Ref": "ExternalIds"}},
+              "ArnLike": {"aws:PrincipalArn": {"Fn::Sub": "arn:${AWS::Partition}:iam::${TrustedAccountId}:role/outcomelens-*-runtime-api"}}
+            }
+          }]
+        },
+        "Policies": [{
+          "PolicyName": "cloud-outcome-usage-read",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {"Effect": "Allow", "Action": ["lambda:ListFunctions", "dynamodb:ListTables", "cloudwatch:GetMetricData", "cloudwatch:ListMetrics", "ec2:DescribeRegions", "tag:GetResources"], "Resource": "*"},
+              {"Effect": "Allow", "Action": "dynamodb:DescribeTable", "Resource": {"Fn::Sub": "arn:${AWS::Partition}:dynamodb:*:${AWS::AccountId}:table/*"}},
+              {"Effect": "Allow", "Action": "apigateway:GET", "Resource": [
+                {"Fn::Sub": "arn:${AWS::Partition}:apigateway:*::/apis"},
+                {"Fn::Sub": "arn:${AWS::Partition}:apigateway:*::/restapis"}
+              ]}
+            ]
+          }
+        }],
+        "Tags": [{"Key": "Project", "Value": "CloudOutcome"}]
+      }
+    }
+  },
+  "Outputs": {
+    "RoleArn": {"Value": {"Fn::GetAtt": ["ReadOnlyRole", "Arn"]}, "Description": "Enter this account ID in CloudOutcome"}
+  }
+}

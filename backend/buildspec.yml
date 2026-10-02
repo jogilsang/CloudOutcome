@@ -1,0 +1,15 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - python -m pip install uv==0.11.24
+      - uv python install 3.14.6
+      - uv venv --python 3.14.6 .venv
+      - uv pip install --python .venv/bin/python -r requirements-tested.txt -r requirements-aws-test.txt
+  build:
+    commands:
+      - .venv/bin/python -m pytest -q --junitxml=pytest-results.xml
+      - .venv/bin/python export_fixtures.py fixtures.json
+# JUnit remains in the build filesystem; output is available in CloudWatch logs.

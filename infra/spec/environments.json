@@ -1,0 +1,5 @@
+{
+  "dev": {"Concurrency": "5", "ApiRate": "5", "ApiBurst": "10", "WorkspaceRequestsPerMinute": "60", "MaxReadUnits": "20", "MaxWriteUnits": "10"},
+  "validation": {"Concurrency": "5", "ApiRate": "5", "ApiBurst": "10", "WorkspaceRequestsPerMinute": "60", "MaxReadUnits": "20", "MaxWriteUnits": "10"},
+  "prod": {"Concurrency": "10", "ApiRate": "10", "ApiBurst": "20", "WorkspaceRequestsPerMinute": "120", "MaxReadUnits": "40", "MaxWriteUnits": "20"}
+}

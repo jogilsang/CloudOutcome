@@ -1,0 +1,11 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.14
+    commands:
+      - python -m pip install uv==0.11.24
+      - uv pip install --system -r ci/requirements-deploy.txt
+  build:
+    commands:
+      - python ci/deploy.py

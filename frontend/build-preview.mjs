@@ -1,0 +1,16 @@
+import {build} from 'esbuild';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+const root=fileURLToPath(new URL('.',import.meta.url));
+const output=new URL('./preview/',import.meta.url);
+await mkdir(output,{recursive:true});
+await build({absWorkingDir:root,entryPoints:['src/main.tsx'],bundle:true,define:{'import.meta.env.DEV':'false'},format:'iife',minify:true,outfile:root+'preview/ui.js'});
+const script=(await readFile(new URL('ui.js',output),'utf8')).replaceAll('</script','<\\/script');
+const css=await readFile(new URL('ui.css',output),'utf8');
+const fixtures=JSON.parse(await readFile(new URL('./fixtures/dashboard-v1.json',import.meta.url),'utf8'));
+const data=JSON.stringify(fixtures).replaceAll('<','\\u003c');
+const html=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#382819"><title>CloudOutcome · Banana sample preview</title><style>${css}</style></head><body><div id="root"></div><script>window.__OUTCOMELENS_SAMPLE__=${data};</script><script>${script}</script></body></html>`;
+await writeFile(new URL('CloudOutcome.html',output),html);
+await writeFile(new URL('manifest.json',output),JSON.stringify({schemaVersion:1,data:'synthetic',sha256:createHash('sha256').update(html).digest('hex'),sourceRevision:process.env.CODEBUILD_RESOLVED_SOURCE_VERSION||'local'},null,2));
+console.log(fileURLToPath(new URL('CloudOutcome.html',output)));

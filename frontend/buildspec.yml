@@ -1,0 +1,13 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - npm ci --no-audit --no-fund
+  build:
+    commands:
+      - npm run build
+      - npm run build:preview
+      - npm test
+# Verification only. Release artifacts require an explicit artifact destination.

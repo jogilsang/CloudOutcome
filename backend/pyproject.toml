@@ -1,0 +1,13 @@
+[project]
+name = "outcomelens-api"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["fastapi==0.138.1", "uvicorn==0.54.0", "pydantic==2.13.5"]
+
+[project.optional-dependencies]
+aws = ["boto3", "mangum"]
+test = ["pytest==9.1.1", "httpx==0.28.1"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

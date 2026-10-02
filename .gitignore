@@ -1,0 +1,13 @@
+node_modules/
+.venv/
+__pycache__/
+.pytest_cache/
+dist/
+cdk.out/
+preview/
+release/
+lambda-package/
+*.sqlite*
+.env*
+.omc/
+.DS_Store

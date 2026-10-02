@@ -1,0 +1,5 @@
+# Module security rules
+
+Runtime-specific obligations: Owns deterministic KPI logic and privacy/auth/storage boundaries. Local single-user SQLite is development-only; cloud mode requires expected API Gateway event and DynamoDB. Subject-derived workspaces, operator/viewer roles, per-minute request cap, atomic version/audit writes. Run uv venv, install requirements-tested.txt plus SDK test pins, then pytest. Lambda packaging uses requirements-runtime.txt; Mangum/Linux execution is not yet verified live.
+
+Do not commit or log credentials, contact details, raw customer events, tokens or personal identifiers. Use synthetic fixtures and pseudonymous identifiers; owner fields are team labels. Review all staged content and Git metadata before remote publication. Do not weaken authentication, quotas or automated deployment gates to pass a test. Record remaining limitations rather than claiming complete privacy/compliance. Run `python3 tools/check_policy.py` before commits and deployment packaging. This pattern scan is defense-in-depth, not an exhaustive PII detector.

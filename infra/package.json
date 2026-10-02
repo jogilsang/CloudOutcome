@@ -1,0 +1,18 @@
+{
+  "name": "outcomelens-infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "synth": "node app.mjs",
+    "test": "node --test test.mjs repositories.test.mjs platform.test.mjs santa-demo.test.mjs",
+    "synth:repositories": "node repositories-app.mjs",
+    "synth:platform": "node platform-app.mjs",
+    "synth:pipeline": "node pipeline-app.mjs",
+    "synth:santa": "node santa-demo-app.mjs"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.261.0",
+    "constructs": "10.6.0"
+  }
+}

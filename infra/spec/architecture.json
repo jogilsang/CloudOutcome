@@ -1,0 +1,233 @@
+[
+  {
+    "title": "OutcomeLens - Serverless Platform v0.2",
+    "subtitle": "Authored and locally tested IaC | AWS deployment not verified | Repeat per environment",
+    "layout": [
+      {
+        "id": "user",
+        "icon": "users",
+        "label": "Invited user"
+      },
+      {
+        "group": "aws-cloud",
+        "label": "AWS managed services - no application VPC",
+        "dir": "row",
+        "children": [
+          {
+            "dir": "col",
+            "children": [
+              {
+                "id": "web",
+                "icon": "aws-amplify",
+                "label": "Amplify\nReact hosting"
+              },
+              {
+                "id": "auth",
+                "icon": "amazon-cognito",
+                "label": "Cognito\nPKCE + MFA"
+              }
+            ]
+          },
+          {
+            "id": "api",
+            "icon": "apigw",
+            "label": "HTTP API\nJWT + limits"
+          },
+          {
+            "id": "fn",
+            "icon": "lambda",
+            "label": "Lambda\nRole + quota"
+          },
+          {
+            "dir": "col",
+            "children": [
+              {
+                "id": "data",
+                "icon": "dynamodb",
+                "label": "DynamoDB\nDefinitions / audit"
+              },
+              {
+                "id": "logs",
+                "icon": "cw",
+                "label": "CloudWatch\nLogs / alarms"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "from": "user",
+        "to": "web",
+        "step": 1
+      },
+      {
+        "from": "web",
+        "to": "auth",
+        "step": 1,
+        "badge": false
+      },
+      {
+        "from": "web",
+        "to": "api",
+        "step": 2
+      },
+      {
+        "from": "api",
+        "to": "fn",
+        "step": 2,
+        "badge": false
+      },
+      {
+        "from": "fn",
+        "to": "data",
+        "step": 3,
+        "style": "secondary"
+      },
+      {
+        "from": "fn",
+        "to": "logs",
+        "step": 4,
+        "style": "mgmt"
+      }
+    ],
+    "steps": [
+      {
+        "no": 1,
+        "title": "Sign in",
+        "desc": "Invited pseudonymous users; code + PKCE, MFA, memory-only access token. Frontend configuration is environment-specific."
+      },
+      {
+        "no": 2,
+        "title": "Authorize",
+        "desc": "Gateway validates JWT and scope. Application checks trusted gateway context and role; client tenant headers have no authority."
+      },
+      {
+        "no": 3,
+        "title": "Persist",
+        "desc": "Subject-scoped keys, atomic version/audit write, per-minute request counter. KPI data remains synthetic; no live collector."
+      },
+      {
+        "no": 4,
+        "title": "Observe",
+        "desc": "Minimal logs and request IDs, latency/error/throttle alarms, Lambda tracing. No request payload or token logging."
+      }
+    ]
+  },
+  {
+    "title": "OutcomeLens - Automatic Deployment",
+    "subtitle": "Same release + template | Environment parameters | No manual approval stage | Not deployed",
+    "layout": [
+      {
+        "id": "source",
+        "icon": "aws-codecommit",
+        "label": "CodeCommit\n3 repositories"
+      },
+      {
+        "group": "generic",
+        "label": "CodePipeline V2 - queued executions",
+        "dir": "row",
+        "children": [
+          {
+            "dir": "col",
+            "children": [
+              {
+                "id": "build",
+                "icon": "aws-codebuild",
+                "label": "Build / verify\n3 revisions"
+              },
+              {
+                "id": "artifact",
+                "icon": "s3",
+                "label": "Immutable\nrelease artifacts"
+              }
+            ]
+          },
+          {
+            "id": "dev",
+            "icon": "aws-cloudformation",
+            "label": "dev\nDeploy + smoke"
+          },
+          {
+            "id": "validation",
+            "icon": "aws-cloudformation",
+            "label": "validation\nDeploy + smoke"
+          },
+          {
+            "dir": "col",
+            "children": [
+              {
+                "id": "prod",
+                "icon": "aws-cloudformation",
+                "label": "prod\nDeploy + smoke"
+              },
+              {
+                "id": "canary",
+                "icon": "aws-codedeploy",
+                "label": "Pretraffic\nCanary / rollback"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "from": "source",
+        "to": "build",
+        "step": 1
+      },
+      {
+        "from": "build",
+        "to": "artifact",
+        "step": 1,
+        "style": "secondary",
+        "badge": false
+      },
+      {
+        "from": "build",
+        "to": "dev",
+        "step": 2
+      },
+      {
+        "from": "dev",
+        "to": "validation",
+        "step": 3
+      },
+      {
+        "from": "validation",
+        "to": "prod",
+        "step": 4
+      },
+      {
+        "from": "prod",
+        "to": "canary",
+        "step": 4,
+        "badge": false
+      }
+    ],
+    "steps": [
+      {
+        "no": 1,
+        "title": "Package once",
+        "desc": "Capture exact source revisions; check policy, test and package. Verify SHA-256; prevent release overwrite/deletion."
+      },
+      {
+        "no": 2,
+        "title": "Deploy dev",
+        "desc": "Same runner injects dev limits, roles and runtime configuration. Reject stateful replacement; verify API authentication boundary and storage."
+      },
+      {
+        "no": 3,
+        "title": "Validate",
+        "desc": "Promote the same artifacts to an isolated validation stack only after dev succeeds. No delivery-only manual gate."
+      },
+      {
+        "no": 4,
+        "title": "Deploy prod",
+        "desc": "Pretraffic test and Lambda canary; verify frontend/config/API. Failure restores previous artifacts and stops progression. First release has no prior version."
+      }
+    ]
+  }
+]
