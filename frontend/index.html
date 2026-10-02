@@ -1,1 +1,39 @@
-<!doctype html><html lang="ko"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="theme-color" content="#382819"/><title>CloudOutcome · Cloud investment, business outcomes</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#382819"/>
+<title>CloudOutcome · Cloud investment, business outcomes</title>
+<meta name="description" content="CloudOutcome connects AWS accounts read-only, measures real usage in Amazon CloudWatch across every enabled Region, prices it with the AWS Price List API and turns it into storefront KPIs, KPI lineage and today's actions. No billing access, no spreadsheets."/>
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="CloudOutcome - Turn cloud spend into business KPIs you can prove"/>
+<meta property="og:description" content="Live AWS usage to storefront KPIs, KPI lineage and today's actions. Read-only cross-account access, works without Cost Explorer."/>
+<meta property="og:image" content="https://dbxh6vyykosu3.cloudfront.net/hackathon/cloudoutcome/cover-1200x675.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+</head>
+<body>
+<div id="root">
+<!-- Static summary for readers without JavaScript; React replaces it on load. -->
+<main style="max-width:720px;margin:0 auto;padding:32px 16px;font-family:system-ui,-apple-system,sans-serif;line-height:1.55;color:#2b2118">
+<h1 style="margin:0 0 8px">CloudOutcome</h1>
+<p style="margin:0 0 16px;font-size:1.1em"><strong>What did our cloud spend actually buy the business?</strong> CloudOutcome answers that on one screen.</p>
+<p>It connects AWS accounts through a read-only IAM role (<code>cloud_outcome_readonlyaccess</code>, with an External ID), measures real usage in Amazon CloudWatch across every enabled Region, prices it with the public AWS Price List API, and combines it with business inputs such as revenue and customer satisfaction. The result is storefront KPIs, KPI lineage from cost to KPI to tagged AWS resources, and a ranked list of today's actions. Costs are estimates from list prices, not a bill, so it also works where Cost Explorer is blocked.</p>
+<h2 style="font-size:1.1em;margin:20px 0 6px">What the demo shows</h2>
+<ul>
+<li><strong>Executive summary</strong> - AWS cost vs. IT budget, KPIs on target, storefront health with 7-day trends, today's actions.</li>
+<li><strong>Business KPIs</strong> - per-storefront KPIs that mix manual inputs with CloudWatch values, plus a KPI builder.</li>
+<li><strong>KPI lineage</strong> - company goal, storefront KPIs and the AWS resources tagged <code>outcome</code> behind them.</li>
+<li><strong>Live AWS estimate</strong> - services in use across all Regions and per-resource cost estimates; connect up to 100 accounts.</li>
+<li><strong>KPI studio and export</strong> - ranked KPI picks for a situation; JSON, HTML report or PDF.</li>
+</ul>
+<p>The demo company <strong>santacloth</strong> is fictional, but its three storefronts (kids, adult, senior) run on real Amazon API Gateway, AWS Lambda and Amazon DynamoDB resources with synthetic orders every five minutes.</p>
+<h2 style="font-size:1.1em;margin:20px 0 6px">Built on AWS</h2>
+<p>AWS Amplify Hosting, Amazon API Gateway, AWS Lambda (FastAPI), Amazon DynamoDB, Amazon Cognito, Amazon EventBridge, Amazon CloudWatch, AWS Price List API, AWS CodeCommit, AWS CodePipeline, AWS CodeBuild, AWS CloudFormation (CDK) and AWS CodeDeploy canary releases. Built with coding agents Codex (Amazon Bedrock) and Claude Code.</p>
+<p>Source: <a href="https://github.com/jogilsang/CloudOutcome">github.com/jogilsang/CloudOutcome</a></p>
+<p style="color:#7a6a5a">Loading the interactive app... JavaScript is required for the live dashboard.</p>
+</main>
+</div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
