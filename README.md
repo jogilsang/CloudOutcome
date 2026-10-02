@@ -11,6 +11,12 @@ enabled Region, prices it with the public AWS Price List API, and combines it wi
   senior) run on real AWS resources tagged `outcome=<store>` and receive synthetic orders every five minutes
 - Built for the AWS *Zero to Shipped* hackathon with coding agents (Codex and Claude Code) connected to AWS
 
+## 30-second walkthrough
+
+![CloudOutcome walkthrough: executive summary, business KPIs, KPI lineage and live AWS estimate](docs/demo.gif)
+
+Recorded from the production app. MP4 version: [`docs/demo.mp4`](docs/demo.mp4).
+
 > Costs shown are estimates from public on-demand list prices, not a bill: Free Tier, credits, discounts
 > and taxes are excluded. Because no billing API is used, it also works in accounts where an
 > organization policy blocks Cost Explorer.
