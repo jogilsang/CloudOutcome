@@ -115,3 +115,29 @@ test('malformed saved data never breaks loading and valid values survive',()=>{
  const c=santa.load();assert.equal(c.itBudgetPct,7);assert.equal(c.shops[2].manual.find(m=>m.id==='csat').value,4.9);assert.equal(c.shops[2].kpis.length,5);
  delete globalThis.localStorage;
 });
+const memoryStore=()=>{const m=new Map();return {getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v))}};
+test('access notice is remembered after "don\'t show again"',async()=>{
+ const w=await load('workspace.tsx');const store=memoryStore();
+ assert.equal(w.accessNoticeAcknowledged(store),false);
+ w.acknowledgeAccessNotice(store);
+ assert.equal(w.accessNoticeAcknowledged(store),true);
+});
+test('removing an account keeps the others in order',async()=>{
+ const {withoutAccount}=await load('workspace.tsx');
+ assert.deepEqual(withoutAccount(['111111111111','222222222222','333333333333'],'222222222222'),['111111111111','333333333333']);
+});
+test('removing an unknown account or the last account is safe',async()=>{
+ const {withoutAccount}=await load('workspace.tsx');
+ assert.deepEqual(withoutAccount(['111111111111'],'999999999999'),['111111111111']);
+ assert.deepEqual(withoutAccount(['111111111111'],'111111111111'),[]);
+});
+test('without browser storage the access notice keeps showing',async()=>{
+ const w=await load('workspace.tsx');
+ assert.equal(w.accessNoticeAcknowledged(null),false);
+ assert.doesNotThrow(()=>w.acknowledgeAccessNotice(null));
+});
+test('blocked storage never breaks the connect flow',async()=>{
+ const w=await load('workspace.tsx');const broken={getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}};
+ assert.doesNotThrow(()=>w.acknowledgeAccessNotice(broken));
+ assert.equal(w.accessNoticeAcknowledged(broken),false);
+});

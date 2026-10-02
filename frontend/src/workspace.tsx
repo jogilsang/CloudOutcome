@@ -15,6 +15,14 @@ type Req=<T>(path:string,init?:RequestInit)=>Promise<T>;
 type T=(ko:string,en:string)=>string;
 
 export const splitAccounts=(text:string)=>Array.from(new Set(text.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean)));
+// "Don't show again" for the access notice; storage may be unavailable (private mode, tests).
+const ACK_KEY='cloudoutcome-access-notice-v1';
+type Store=Pick<Storage,'getItem'|'setItem'>|null;
+const browserStore=():Store=>{try{return typeof localStorage==='undefined'?null:localStorage}catch{return null}};
+export function accessNoticeAcknowledged(store:Store=browserStore()){try{return store?.getItem(ACK_KEY)==='1'}catch{return false}}
+export function acknowledgeAccessNotice(store:Store=browserStore()){try{store?.setItem(ACK_KEY,'1')}catch{/* not remembered; the notice shows again */}}
+export const withoutAccount=(ids:string[],id:string)=>ids.filter(x=>x!==id);
+const REVOKE='aws cloudformation delete-stack --stack-name CloudOutcomeReadOnlyAccess';
 const reasonText=(r:string|null,t:T)=>r==='assume-role-denied'?t('역할 없음/신뢰·External ID 불일치','Role missing or trust/External ID mismatch'):r==='account-mismatch'?t('다른 계정 응답','Different account answered'):r||'';
 
 function Warning({onAccept,onCancel,t}:{onAccept:()=>void;onCancel:()=>void;t:T}){
@@ -29,6 +37,20 @@ function Warning({onAccept,onCancel,t}:{onAccept:()=>void;onCancel:()=>void;t:T}
    <li>{t('조직의 보안 정책상 외부 서비스 연결 승인이 필요하다면 먼저 승인을 받으세요.','If your organization requires approval for third-party access, get it first.')}</li></ul>
   <label className="check"><input type="checkbox" checked={ok} onChange={e=>setOk(e.target.checked)}/>{t('위 내용을 이해했습니다.','I understand.')}</label>
   <div className="modal-actions"><button className="button secondary" onClick={onCancel}>{t('취소','Cancel')}</button><button className="button primary" disabled={!ok} onClick={onAccept}>{t('임시 워크스페이스로 계속','Continue with a temporary workspace')}</button></div>
+ </section></div>;
+}
+
+function AccessNotice({role,onAccept,onCancel,t}:{role:string;onAccept:(remember:boolean)=>void;onCancel:()=>void;t:T}){
+ const [remember,setRemember]=useState(false);
+ return <div className="modal-overlay" onClick={onCancel}><section className="modal" role="dialog" aria-modal="true" aria-label={t('리소스 조회 안내','Resource access notice')} onClick={e=>e.stopPropagation()}>
+  <div className="eyebrow">{t('연결 점검 전 안내','BEFORE WE CHECK')}</div><h2>{t('계정의 리소스를 조회합니다','CloudOutcome will read these accounts')}</h2>
+  <ul className="warning-list">
+   <li>{t(`입력한 각 계정의 ${role} 역할을 External ID와 함께 맡아(AssumeRole) 연결을 확인합니다.`,`It assumes the ${role} role in each account you entered, with your External ID, to confirm access.`)}</li>
+   <li>{t('연결되면 모든 활성 리전에서 리소스 목록(Lambda·API Gateway·DynamoDB 등), 태그, CloudWatch 지표를 읽습니다.','Once connected it reads resource lists (Lambda, API Gateway, DynamoDB and more), tags and CloudWatch metrics in every enabled Region.')}</li>
+   <li>{t('쓰기, 청구 데이터, 애플리케이션 데이터(테이블 항목·로그 내용)는 읽지 않습니다.','It never writes, and never reads billing data or application data such as table items or log contents.')}</li>
+   <li>{t('하루 한 번 자동 점검하며, 화면을 보는 동안 10분마다 오래된 데이터를 다시 수집합니다. 계정을 목록에서 빼거나 스택을 삭제하면 멈춥니다.','Connections are re-checked daily and stale data is re-collected every 10 minutes while you watch. Remove the account or delete the stack to stop.')}</li></ul>
+  <label className="check"><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/>{t('다시 보지 않기','Don\'t show this again')}</label>
+  <div className="modal-actions"><button className="button secondary" onClick={onCancel}>{t('취소','Cancel')}</button><button className="button primary" onClick={()=>onAccept(remember)}>{t('동의하고 점검','Agree and check')}</button></div>
  </section></div>;
 }
 
@@ -57,7 +79,7 @@ function ServiceEditor({initial,accounts,onSave,onCancel,t,en}:{initial:Service;
  </section>;
 }
 
-export function Workspace({t,en,signedIn,onSignIn,request,days}:{t:T;en:boolean;signedIn:boolean;onSignIn:()=>void;request:Req;days:number}){
+export function Workspace({t,en,signedIn,onSignIn,allowSignIn,request,days}:{t:T;en:boolean;signedIn:boolean;onSignIn:()=>void;allowSignIn:boolean;request:Req;days:number}){
  const [anon,setAnon]=useState<AnonWorkspace|null>(()=>signedIn?null:anonWorkspace()),[warn,setWarn]=useState(false);
  const ready=signedIn||!!anon;
  const call:Req=async(path,init)=>{
@@ -68,6 +90,9 @@ export function Workspace({t,en,signedIn,onSignIn,request,days}:{t:T;en:boolean;
  const [conn,setConn]=useState<Connection|null>(null),[accounts,setAccounts]=useState<Account[]>([]),[progress,setProgress]=useState<ProgressState|null>(null);
  const [text,setText]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(''),[copied,setCopied]=useState('');
  const [services,setServices]=useState<Service[]>([]),[editing,setEditing]=useState<Service|null>(null);
+ const [pending,setPending]=useState<(()=>void)|null>(null);
+ // Anything that assumes the role and reads resources asks once, unless the visitor chose "don't show again".
+ const guarded=(fn:()=>void)=>()=>accessNoticeAcknowledged()?fn():setPending(()=>fn);
  const [scope,setScope]=useState('all'),[live,setLive]=useState<Live|null>(null),[updatedAt,setUpdatedAt]=useState<Date|null>(null);
  const run=async(label:string,fn:()=>Promise<void>)=>{setBusy(label);setError('');try{await fn()}catch(e){setError((e as Error).message)}finally{setBusy('')}};
  const loadAccounts=async()=>{const r=await call<{accounts:Account[];progress:ProgressState}>('/accounts');setAccounts(r.accounts);setProgress(r.progress)};
@@ -86,46 +111,61 @@ export function Workspace({t,en,signedIn,onSignIn,request,days}:{t:T;en:boolean;
  const sync=()=>run('sync',async()=>{const r=await call<{accounts:Account[];progress:ProgressState}>('/sync',{method:'POST',body:'{}'});setAccounts(r.accounts);setProgress(r.progress);await loadLive()});
  const refresh=()=>run('refresh',async()=>{const r=await call<{progress:ProgressState}>('/collect',{method:'POST',body:JSON.stringify({only_stale:false})});setProgress(r.progress);await loadLive()});
  const saveServices=(list:Service[])=>run('services',async()=>{setServices((await call<{services:Service[]}>('/services',{method:'PUT',body:JSON.stringify({services:list})})).services);setEditing(null)});
+ const remove=(id:string)=>{if(!window.confirm(t(`${id} 계정을 목록에서 삭제할까요? 이 계정의 수집이 멈춥니다.`,`Remove ${id}? Collection for this account stops.`)))return;
+  run('remove',async()=>{const r=await call<{accounts:Account[];progress:ProgressState}>('/accounts',{method:'PUT',body:JSON.stringify({accounts:withoutAccount(accounts.map(a=>a.id),id)})});setAccounts(r.accounts);setProgress(r.progress);await loadLive()})};
+ const removeAll=()=>{if(!window.confirm(t('연결된 계정을 모두 삭제할까요?'+(signedIn?'':' 임시 워크스페이스도 이 브라우저에서 종료됩니다.'),'Remove every account?'+(signedIn?'':' The temporary workspace also ends in this browser.'))))return;
+  run('remove',async()=>{await call('/accounts',{method:'PUT',body:JSON.stringify({accounts:[]})});setAccounts([]);setLive(null);if(!signedIn){forgetAnonWorkspace();setAnon(null)}})};
  async function file(e:React.ChangeEvent<HTMLInputElement>){const f=e.target.files?.[0];if(f)setText((await f.text()).slice(0,5000))}
  const copy=async(label:string,value:string)=>{try{await navigator.clipboard.writeText(value);setCopied(label);setTimeout(()=>setCopied(''),2000)}catch{setCopied('')}};
  if(!ready)return <>{warn&&<Warning t={t} onAccept={startAnon} onCancel={()=>setWarn(false)}/>}
-  <section className="panel"><h2>{t('내 AWS 계정 연결','Connect your AWS accounts')}</h2><p>{t('로그인하면 연결이 워크스페이스에 계속 저장됩니다. 로그인 없이도 임시 워크스페이스(7일)로 바로 연결할 수 있습니다.','Sign in to keep connections in your workspace, or connect right away with a 7-day temporary workspace.')}</p>
-   <div className="modal-actions start"><button className="button primary" onClick={()=>setWarn(true)}>{t('로그인 없이 연결','Connect without signing in')}</button><button className="button secondary" onClick={onSignIn}>{t('로그인','Sign in')}</button></div></section></>;
+  <section className="panel"><h2>{t('내 AWS 계정 연결','Connect your AWS accounts')}</h2><p>{t('로그인 없이 바로 연결할 수 있습니다. 이 브라우저 전용 임시 워크스페이스(7일)가 만들어집니다.','No sign-in needed. A temporary workspace for this browser (7 days) is created.')}</p>
+   <ol className="connect-steps"><li><b>{t('역할 만들기','Create the role')}</b> {t('CloudShell 명령 한 줄(계정 1개) 또는 StackSets(조직 전체)로 읽기 전용 역할 cloud_outcome_readonlyaccess를 만듭니다.','One CloudShell command (one account) or StackSets (a whole organization) creates the read-only role cloud_outcome_readonlyaccess.')}</li>
+    <li><b>{t('계정 ID 입력','Enter account IDs')}</b> {t('최대 100개까지 붙여 넣거나 파일로 불러옵니다.','Paste up to 100, or load them from a file.')}</li>
+    <li><b>{t('연결 상태 확인','Check the connection')}</b> {t('계정별로 연결됨/실패와 사유를 보고, 필요 없는 계정은 언제든 삭제합니다.','See connected or failed with the reason per account, and remove any account anytime.')}</li></ol>
+   <div className="modal-actions start"><button className="button primary" onClick={()=>setWarn(true)}>{t('연결 시작','Start connecting')}</button>{allowSignIn&&<button className="button secondary" onClick={onSignIn}>{t('로그인','Sign in')}</button>}</div></section></>;
  const connected=accounts.filter(a=>a.status==='connected'),failed=accounts.filter(a=>a.status==='failed');
  const origin=location.origin,ext=conn?.external_id||'',trust=conn?.trusted_account_id||'';
  const single=`curl -fsSL ${origin}${conn?.template_path} -o cloudoutcome-role.json && aws cloudformation deploy --stack-name CloudOutcomeReadOnlyAccess --template-file cloudoutcome-role.json --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ExternalIds=${ext} TrustedAccountId=${trust} && aws sts get-caller-identity --query Account --output text`;
  const stackset=`curl -fsSL ${origin}${conn?.template_path} -o cloudoutcome-role.json && aws cloudformation create-stack-set --stack-set-name CloudOutcomeReadOnlyAccess --template-body file://cloudoutcome-role.json --capabilities CAPABILITY_NAMED_IAM --permission-model SERVICE_MANAGED --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false --parameters ParameterKey=ExternalIds,ParameterValue=${ext} ParameterKey=TrustedAccountId,ParameterValue=${trust} && aws cloudformation create-stack-instances --stack-set-name CloudOutcomeReadOnlyAccess --deployment-targets OrganizationalUnitIds=<root-or-ou-id> --regions us-east-1`;
  const pct=progress&&progress.total?Math.round(progress.done/progress.total*100):0;
  return <>
+  {pending&&<AccessNotice role={conn?.role_name||'cloud_outcome_readonlyaccess'} t={t} onCancel={()=>setPending(null)} onAccept={remember=>{if(remember)acknowledgeAccessNotice();const fn=pending;setPending(null);fn()}}/>}
   {error&&<div className="error" role="alert">{error}</div>}
   <section className="panel"><div className="panel-heading"><div><h2>{t('계정 연결','Account connections')}</h2>
     <p>{conn?.mode==='temporary'?t(`임시 워크스페이스 · ${conn.expires_at?new Date(conn.expires_at*1000).toLocaleDateString(en?'en-US':'ko-KR'):''} 만료`,`Temporary workspace · expires ${conn.expires_at?new Date(conn.expires_at*1000).toLocaleDateString('en-US'):''}`):conn?.mode==='local'?t('로컬 개발 워크스페이스','Local development workspace'):t('로그인 워크스페이스','Signed-in workspace')}</p></div>
     <span className="badge teal">{connected.length}/{accounts.length} {t('연결됨','connected')}</span></div>
    <div className="callout important"><b>{t('필수: 각 계정에 IAM 역할 ','Required: create the IAM role ')}<code>{conn?.role_name}</code>{t(' 을 이 이름 그대로 만들어야 연결됩니다.',' in each account with exactly this name.')}</b><br/>
     {t('신뢰 관계는 CloudOutcome 계정','Trust: CloudOutcome account')} <code>{trust}</code> {t('의 런타임 역할로만 제한되며 External ID','runtime roles only, with External ID')} <code>{ext}</code> {t('가 일치해야 합니다. 읽기 전용(목록·지표·태그)이며 스택 삭제로 해제됩니다.','. Read-only (lists, metrics, tags); delete the stack to revoke.')}</div>
+   <h3 className="step-title"><span className="step-no">1</span>{t('각 계정에 읽기 전용 역할 만들기','Create the read-only role in each account')}</h3>
    <details open={!accounts.length}><summary>{t('역할 만들기 (계정 1개 · CloudShell)','Create the role (one account · CloudShell)')}</summary>
     <p className="subtle">{t('AWS 콘솔에 로그인된 브라우저에서 CloudShell을 열고 명령을 붙여 넣으세요. 마지막 줄에 계정 ID가 출력됩니다.','Open CloudShell in a browser signed in to the console and paste the command. It prints the account ID last.')} <a className="link-button" href="https://console.aws.amazon.com/cloudshell/home?region=us-east-1" target="_blank" rel="noopener noreferrer">{t('CloudShell 열기 ↗','Open CloudShell ↗')}</a></p>
     <code className="block">{single}</code><button className="button secondary" onClick={()=>copy('single',single)}>{copied==='single'?t('복사됨 ✓','Copied ✓'):t('명령 복사','Copy command')}</button></details>
    <details><summary>{t('역할 만들기 (계정 여러 개 · Organizations StackSets)','Create the role (many accounts · Organizations StackSets)')}</summary>
     <p className="subtle">{t('관리 계정(또는 위임 관리자)의 CloudShell에서 실행하세요. <root-or-ou-id>를 대상 OU 또는 루트 ID로 바꾸면 조직의 모든 계정에 같은 이름의 역할이 만들어집니다.','Run in the management (or delegated admin) account CloudShell. Replace <root-or-ou-id> with the target OU or root ID to create the same role in every account.')}</p>
     <code className="block">{stackset}</code><button className="button secondary" onClick={()=>copy('stackset',stackset)}>{copied==='stackset'?t('복사됨 ✓','Copied ✓'):t('명령 복사','Copy command')}</button></details>
+   <h3 className="step-title"><span className="step-no">2</span>{t('계정 ID 입력','Enter account IDs')}</h3>
+   <div className="form-row"><label>{t('역할 이름 (고정)','Role name (fixed)')}<input readOnly value={conn?.role_name||''} aria-describedby="role-fixed"/></label></div>
+   <p className="subtle" id="role-fixed">{t('역할 이름은 모든 계정에서 같아야 하며 바꿀 수 없습니다. CloudOutcome의 신뢰 정책이 이 이름만 허용합니다.','The role name is the same in every account and cannot be changed; CloudOutcome trusts only this name.')}</p>
    <label className="stack">{t(`계정 ID 목록 (최대 ${conn?.max_accounts||100}개, 쉼표·줄바꿈·공백 구분)`,`Account IDs (up to ${conn?.max_accounts||100}; commas, new lines or spaces)`)}
     <textarea value={text} placeholder={'111111111111, 222222222222\n333333333333'} onChange={e=>setText(e.target.value)}/></label>
    <div className="modal-actions start"><label className="button secondary file-button">{t('accounts.list 파일 불러오기','Load accounts.list file')}<input type="file" accept=".list,.txt,.csv" onChange={file}/></label>
     {conn?.local_profile_account&&<button className="button secondary" onClick={()=>setText(x=>splitAccounts(x+' '+conn.local_profile_account).join('\n'))}>{t('로컬 프로필 계정 추가','Add local profile account')}</button>}
-    <button className="button primary" disabled={!!busy||!splitAccounts(text).length} onClick={save}>{busy==='save'?t('저장·점검 중…','Saving and checking…'):t(`${splitAccounts(text).length}개 계정 저장 후 연결 점검`,`Save ${splitAccounts(text).length} accounts and check`)}</button></div>
-   {accounts.length>0&&<><div className="panel-heading compact"><h3>{t('계정별 연결 상태','Connection status by account')}</h3>
-     <button className="button secondary" disabled={!!busy} onClick={sync}>{busy==='sync'?t('Sync 중…','Syncing…'):t('Sync (다시 점검)','Sync (re-check)')}</button></div>
+    <button className="button primary" disabled={!!busy||!splitAccounts(text).length} onClick={guarded(save)}>{busy==='save'?t('저장·점검 중…','Saving and checking…'):t(`${splitAccounts(text).length}개 계정 저장 후 연결 점검`,`Save ${splitAccounts(text).length} accounts and check`)}</button></div>
+   {accounts.length>0&&<><div className="panel-heading compact"><h3 className="step-title"><span className="step-no">3</span>{t('계정별 연결 상태','Connection status by account')}</h3>
+     <button className="button secondary" disabled={!!busy} onClick={guarded(sync)}>{busy==='sync'?t('Sync 중…','Syncing…'):t('Sync (다시 점검)','Sync (re-check)')}</button></div>
     <p className="subtle">{t('하루 한 번 자동으로 점검합니다. 실패한 계정은 다음 점검에서 성공할 때까지 데이터를 가져오지 않습니다.','Checked automatically once a day. Failed accounts are not collected until a check succeeds.')} {failed.length>0&&t(`실패 ${failed.length}개`,`${failed.length} failed`)}</p>
-    <table><thead><tr><th>{t('계정','Account')}</th><th>{t('상태','Status')}</th><th>{t('사유','Reason')}</th><th>{t('점검 시각 (UTC)','Checked (UTC)')}</th></tr></thead>
-     <tbody>{accounts.map(a=><tr key={a.id}><td><code>{a.id}</code></td><td><span className={'pill '+(a.status==='connected'?'green':a.status==='failed'?'amber':'neutral')}>{a.status==='connected'?t('연결됨','Connected'):a.status==='failed'?t('실패','Failed'):t('대기','Pending')}</span></td><td className="subtle">{reasonText(a.reason,t)}</td><td className="subtle">{a.checked_at?.replace('T',' ').slice(0,16)||'—'}</td></tr>)}</tbody></table></>}
+    <table><thead><tr><th>{t('계정','Account')}</th><th>{t('상태','Status')}</th><th>{t('사유','Reason')}</th><th>{t('점검 시각 (UTC)','Checked (UTC)')}</th><th/></tr></thead>
+     <tbody>{accounts.map(a=><tr key={a.id}><td><code>{a.id}</code></td><td><span className={'pill '+(a.status==='connected'?'green':a.status==='failed'?'amber':'neutral')}>{a.status==='connected'?t('연결됨','Connected'):a.status==='failed'?t('실패','Failed'):t('대기','Pending')}</span></td><td className="subtle">{reasonText(a.reason,t)}</td><td className="subtle">{a.checked_at?.replace('T',' ').slice(0,16)||'—'}</td><td><button className="link-button" disabled={!!busy} onClick={()=>remove(a.id)}>{t('삭제','Remove')}</button></td></tr>)}</tbody></table>
+    <div className="callout"><b>{t('연결 해제','Disconnect')}</b> · {t('목록에서 삭제하면 CloudOutcome의 수집이 멈춥니다. 접근 자체를 없애려면 각 계정 CloudShell에서 역할 스택을 삭제하세요.','Removing an account here stops collection. To revoke access itself, delete the role stack in each account\'s CloudShell.')}
+     <code className="block">{REVOKE}</code><div className="modal-actions start"><button className="button secondary" onClick={()=>copy('revoke',REVOKE)}>{copied==='revoke'?t('복사됨 ✓','Copied ✓'):t('삭제 명령 복사','Copy delete command')}</button>
+     <button className="button secondary" disabled={!!busy} onClick={removeAll}>{signedIn?t('모든 계정 삭제','Remove all accounts'):t('모두 삭제하고 임시 워크스페이스 종료','Remove all and end the temporary workspace')}</button></div></div></>}
   </section>
   {connected.length>0&&<>
    <div className="filters"><label>{t('보기 범위','Scope')}<select value={scope} onChange={e=>setScope(e.target.value)}><option value="all">{t(`연결된 전체 계정 (${connected.length})`,`All connected accounts (${connected.length})`)}</option>
      <optgroup label={t('비즈니스 서비스','Business services')}>{services.map(s=><option key={s.id} value={'svc:'+s.id}>{s.name}</option>)}</optgroup>
      <optgroup label={t('계정','Accounts')}>{connected.map(a=><option key={a.id} value={'acct:'+a.id}>{a.id}</option>)}</optgroup></select></label>
     <div className="filter-status"><span className="status-dot"/>{progress?.running?t('수집 중','Collecting'):t('스냅샷 기준','From snapshots')}</div>
-    <button className="button secondary" disabled={!!busy||progress?.running} onClick={refresh}>{t('새로고침','Refresh')}</button></div>
+    <button className="button secondary" disabled={!!busy||progress?.running} onClick={guarded(refresh)}>{t('새로고침','Refresh')}</button></div>
    <p className="subtle refresh-note">{t('연결된 계정만 백그라운드에서 수집하며, 보고 있는 동안 10분마다 오래된 계정을 다시 수집합니다.','Only connected accounts are collected in the background; while visible, stale accounts are re-collected every 10 minutes.')} {updatedAt&&<>{t('마지막 갱신','Last updated')} {updatedAt.toLocaleTimeString(en?'en-US':'ko-KR')}.</>}</p>
    {progress?.running&&<div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><div className="progress-track"><div className="progress-fill" style={{width:pct+'%'}}/></div>
     <div className="progress-label"><span>{t('계정 수집 중 (실제 진행률)','Collecting accounts (actual progress)')}</span><span>{progress.done}/{progress.total} · {pct}%</span></div></div>}

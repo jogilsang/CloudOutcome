@@ -1,6 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Progress} from './progress';
-import {Workspace} from './workspace';
 
 // Live AWS usage priced with AWS Price List API list prices. Never presented as a bill.
 type InUse = {namespace:string;service:string;regions:Record<string,number>};
@@ -74,8 +73,8 @@ export function EstimateView({data,t,en}:{data:Estimate;t:(ko:string,en:string)=
  </>;
 }
 
-export function LivePanel({t,en,signedIn,onSignIn,request,publicRequest}:{t:(ko:string,en:string)=>string;en:boolean;signedIn:boolean;onSignIn:()=>void;request:Request;publicRequest:Request}){
- const [source,setSource]=useState<'demo'|'mine'>('demo'),[days,setDays]=useState(7);
+export function LivePanel({t,en,publicRequest,onConnect}:{t:(ko:string,en:string)=>string;en:boolean;publicRequest:Request;onConnect:()=>void}){
+ const source='demo' as 'demo'|'mine',[days,setDays]=useState(7);
  const [data,setData]=useState<Estimate|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(false);
  const [tick,setTick]=useState(0),[updatedAt,setUpdatedAt]=useState<Date|null>(null);
  const forced=useRef(false);
@@ -94,13 +93,12 @@ export function LivePanel({t,en,signedIn,onSignIn,request,publicRequest}:{t:(ko:
    .then(x=>{if(alive){setData(x);shown.current=scope;setUpdatedAt(new Date())}}).catch(e=>{if(alive)setError(e.message)}).finally(()=>{if(alive)setLoading(false)});
   return()=>{alive=false}},[source,days,tick]);
  return <>
-  <div className="filters"><label>{t('데이터 출처','Data source')}<select value={source} onChange={e=>setSource(e.target.value as 'demo'|'mine')}><option value="demo">{t('라이브 데모 계정 (읽기 전용 스냅샷)','Live demo account (read-only snapshot)')}</option><option value="mine">{t('내 AWS 계정 연결','Connect my AWS account')}</option></select></label>
+  <div className="filters"><label>{t('데이터 출처','Data source')}<select value="demo" disabled><option value="demo">{t('라이브 데모 계정 (읽기 전용 스냅샷)','Live demo account (read-only snapshot)')}</option></select></label>
    <label>{t('분석 기간','Window')}<select value={days} onChange={e=>setDays(Number(e.target.value))}>{[7,14,30].map(d=><option key={d} value={d}>{d}{t('일',' days')}</option>)}</select></label>
    {source==='demo'&&<><div className="filter-status"><span className="status-dot"/>{loading?t('수집 중','Collecting'):t('AWS Price List 기반 추정','AWS Price List estimate')}</div>
-   <button className="button secondary" disabled={loading} onClick={refreshNow}>{loading?t('새로고침 중…','Refreshing…'):t('새로고침','Refresh')}</button></>}</div>
+   <button className="button secondary" disabled={loading} onClick={refreshNow}>{loading?t('새로고침 중…','Refreshing…'):t('새로고침','Refresh')}</button></>}<button className="button primary" onClick={onConnect}>{t('내 AWS 계정 연결 →','Connect my AWS account →')}</button></div>
   {source==='demo'&&<p className="subtle refresh-note">{t('이 페이지를 보고 있는 동안 10분마다 자동으로 새로고침합니다.','While this page is visible it refreshes automatically every 10 minutes.')} {updatedAt&&<>{t('마지막 갱신','Last updated')} {updatedAt.toLocaleTimeString(en?'en-US':'ko-KR')}.</>} {source==='demo'?t('라이브 데모 데이터는 서버가 10분마다 수집하므로 그 사이에는 같은 값이 보일 수 있습니다.','The live demo is collected by the server every 10 minutes, so values may repeat between collections.'):t('새로고침 버튼은 연결된 계정을 즉시 다시 조회합니다(전 리전, 수 초 소요).','Refresh re-reads the connected account immediately (all Regions, takes a few seconds).')}</p>}
   {error&&<div className="error" role="alert">{error}</div>}
-  {source==='mine'&&<Workspace t={t} en={en} signedIn={signedIn} onSignIn={onSignIn} request={request} days={days}/>}
   <Progress active={loading} expectedMs={source==='demo'&&!LOCAL?1500:12000} t={t} steps={[t('활성 리전 확인','Finding enabled Regions'),t('리전별 리소스 조회','Listing resources per Region'),t('CloudWatch 지표 수집','Reading CloudWatch metrics'),t('사용 중인 서비스 탐색','Discovering services in use'),t('공개 단가로 비용 계산','Pricing with public list prices')]}/>
   {source==='demo'&&data&&((data as {status?:string}).status==='collecting'?<div className="callout">{t('새로 배포된 환경이라 라이브 데모 데이터를 수집하고 있습니다(최대 10분). 잠시 후 새로고침하세요.','This environment was just deployed and is collecting live demo data (up to 10 minutes). Refresh shortly.')}</div>:<EstimateView data={data} t={t} en={en}/>)}
  </>;

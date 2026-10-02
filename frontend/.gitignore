@@ -13,3 +13,4 @@ package/
 coverage/
 *.log
 .DS_Store
+.omc/

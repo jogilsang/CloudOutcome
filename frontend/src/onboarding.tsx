@@ -23,7 +23,7 @@ export const PAGES:Page[]=[
   points:[['예: "블랙프라이데이 세일을 앞두고 결제 장애가 걱정돼요"','Example: "Black Friday is coming and I worry about checkout failures"'],['미리 정의된 KPI 10종 안에서만 추천하고 숫자를 지어내지 않아요.','Recommendations come only from 10 predefined KPIs; no numbers are invented.']]},
  {icon:'→',title:['시작해 볼까요?','Ready to start?'],
   body:['상단의 언어 선택으로 한국어/English를 바꿀 수 있고, "가이드" 버튼으로 이 안내를 다시 볼 수 있어요.','Switch language at the top, and reopen this guide anytime with the Guide button.'],
-  points:[['저장·계정 연결이 필요하면 오른쪽 위에서 로그인하세요.','Sign in at the top right to save work or connect an account.']]},
+  points:[['내 AWS 계정은 왼쪽 "AWS 계정 연결" 메뉴에서 로그인 없이 연결할 수 있어요.','Connect your own AWS accounts from "Connect AWS accounts" on the left, no sign-in needed.']]},
 ];
 
 export function Onboarding({open,onClose,t}:{open:boolean;onClose:()=>void;t:(ko:string,en:string)=>string}){

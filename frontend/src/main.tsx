@@ -4,6 +4,7 @@ import './style.css';
 import {offline,seedDemoContracts} from './transport';
 import {initializeAuth,signIn,signOut,authenticatedFetch,environment,signedIn,cloudConfigured,publicFetch} from './auth';
 import {LivePanel} from './live';
+import {Workspace} from './workspace';
 import {Studio} from './studio';
 import {Progress} from './progress';
 import {Onboarding,onboardingSeen} from './onboarding';
@@ -27,6 +28,9 @@ async function parse<T>(r:Response):Promise<T>{
  const result=await r.json().catch(()=>({})); if(!r.ok)throw Error(typeof result.detail==='string'?result.detail:result.message||`HTTP ${r.status}`); return result;
 }
 async function publicApi<T>(path:string):Promise<T>{return parse<T>(await publicFetch(path))}
+// Sign-in is for invited operators only; visitors use the no-sign-in flows. Add ?signin to the URL to show it.
+const signInVisible=()=>new URLSearchParams(location.search).has('signin');
+
 function Icon({name,size=20}:{name:string;size?:number}){
  const paths:Record<string,React.ReactNode>={
  grid:<><rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/><rect x="3" y="14" width="7" height="7" rx="1.4"/><rect x="14" y="14" width="7" height="7" rx="1.4"/></>,
@@ -34,6 +38,7 @@ function Icon({name,size=20}:{name:string;size?:number}){
  check:<><path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z"/><path d="m8 12 3 3 5-6"/></>,
  spark:<><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></>,
  clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+ link:<><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></>,
  arrow:<><path d="M5 12h14m-5-5 5 5-5 5"/></>,
  dollar:<><path d="M12 2v20m5-16H9a4 4 0 0 0 0 8h6a4 4 0 0 1 0 8H6" transform="translate(0 -2) scale(1 .9)"/></>,
  book:<><path d="M4 3h12l4 4v14H4zM8 11h8M8 15h8M8 7h4"/></>,
@@ -76,6 +81,7 @@ function App({demo=false}:{demo?:boolean}){
  const subtitle:Record<string,string>={
   overview:t('santacloth의 IT 투자가 쇼핑몰 매출·안정성에 어떻게 이어지는지 한눈에 봅니다.',"How santacloth's IT spend turns into storefront revenue and reliability, at a glance."),
   business:t('수동 입력(매출·고객만족도)과 CloudWatch 실측을 조합해 쇼핑몰별 KPI를 관리합니다.','Manage storefront KPIs by combining manual inputs (revenue, satisfaction) with CloudWatch measurements.'),
+  connect:t('읽기 전용 역할로 내 AWS 계정을 연결하고 계정별 연결 상태를 확인합니다. 로그인은 필요 없습니다.','Connect your AWS accounts through a read-only role and check each connection. No sign-in needed.'),
   live:t('실제 AWS 계정의 사용 중인 서비스와 공개 단가 기준 추정 비용을 모든 리전에서 봅니다.','See services in use and public-price cost estimates across every Region of a real AWS account.'),
   map:t('회사 목표가 쇼핑몰 KPI와 실제 AWS 리소스로 어떻게 이어지는지 확인합니다.','Trace how the company goal flows into storefront KPIs and real AWS resources.'),
   studio:t('상황을 설명하면 이커머스 KPI를 추천하고, 정한 KPI를 계약으로 관리합니다.','Describe a situation to get ecommerce KPI picks, and manage agreed KPIs as contracts.'),
@@ -94,21 +100,22 @@ function App({demo=false}:{demo?:boolean}){
    data:{company:santa.company,outcomes:santa.outcomes,dashboard:data,definitions:saved}};
  }
  const s=data?.summary;
- const nav=[['overview','grid',t('경영 요약','Executive summary')],['business','check',t('경영 KPI','Business KPIs')],['live','dollar',t('실계정 비용 추정','Live AWS estimate')],['map','graph',t('KPI 관계 맵','KPI lineage')],['studio','spark',t('KPI 스튜디오','KPI studio')],['simulator','clock',t('시나리오 시뮬레이터','Scenario simulator')]];
+ const nav=[['overview','grid',t('경영 요약','Executive summary')],['business','check',t('경영 KPI','Business KPIs')],['live','dollar',t('실계정 비용 추정','Live AWS estimate')],['connect','link',t('AWS 계정 연결','Connect AWS accounts')],['map','graph',t('KPI 관계 맵','KPI lineage')],['studio','spark',t('KPI 스튜디오','KPI studio')],['simulator','clock',t('시나리오 시뮬레이터','Scenario simulator')]];
  return <div className="shell">
  <aside><div className="brand"><span className="brand-mark">◈</span><span>Cloud<span className="brand-light">Outcome</span><small>CLOUD → BUSINESS OUTCOMES</small></span></div>
  <div className="workspace"><span className="avatar">S</span><div>santacloth<small>{t('의류 이커머스 · 데모','Apparel ecommerce · demo')}</small></div><span className="chevron">⌄</span></div>
  <div className="nav-caption">WORKSPACE</div><nav>{nav.map(([id,icon,label])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setNotice('')}}><Icon name={icon}/>{label}{id==='studio'&&<span className="new">BETA</span>}</button>)}</nav>
- <div className="aside-note"><span className="status-dot"/>{t('라이브 데모 계정 연결됨','Live demo account connected')}<p>{t('santacloth 쇼핑몰 3곳의 AWS 리소스를 읽기 전용으로 10분마다 수집합니다.',"Read-only collection of santacloth's three storefronts every 10 minutes.")}</p><button onClick={()=>setTab('live')}>{t('라이브 계정 보기','View live account')} <Icon name="arrow" size={16}/></button></div>
+ <div className="aside-note"><span className="status-dot"/>{t('라이브 데모 계정 연결됨','Live demo account connected')}<p>{t('santacloth 쇼핑몰 3곳의 AWS 리소스를 읽기 전용으로 10분마다 수집합니다.',"Read-only collection of santacloth's three storefronts every 10 minutes.")}</p><button onClick={()=>setTab('live')}>{t('라이브 계정 보기','View live account')} <Icon name="arrow" size={16}/></button><button onClick={()=>setTab('connect')}>{t('내 AWS 계정 연결','Connect my AWS account')} <Icon name="arrow" size={16}/></button></div>
  <div className="profile"><span className="avatar outline">SA</span><div>{t('santacloth IT 담당자','santacloth IT owner')}<small>{t('미리 세팅된 데모','Preset demo')}</small></div></div></aside>
- <main><header><div className="breadcrumb">santacloth <span>/</span> {nav.find(n=>n[0]===tab)?.[2]}</div><div className="header-right"><button className="button secondary" onClick={()=>setGuide(true)}>{t('가이드','Guide')}</button>{environment()&&<span className="badge amber">{environment()}</span>}{signedIn()?<button className="button secondary" onClick={signOut}>{t('로그아웃','Sign out')}</button>:cloudConfigured()&&<button className="button secondary" onClick={()=>signIn()}>{t('로그인','Sign in')}</button>}<span className="badge neutral">DEMO</span><select aria-label="Language" value={lang} onChange={e=>setLang(e.target.value)}><option value="ko">한국어</option><option value="en">English</option></select><span className="avatar mini">SA</span></div></header>
+ <main><header><div className="breadcrumb">santacloth <span>/</span> {nav.find(n=>n[0]===tab)?.[2]}</div><div className="header-right"><button className="button secondary" onClick={()=>setGuide(true)}>{t('가이드','Guide')}</button>{environment()&&<span className="badge amber">{environment()}</span>}{signedIn()?<button className="button secondary" onClick={signOut}>{t('로그아웃','Sign out')}</button>:cloudConfigured()&&signInVisible()&&<button className="button secondary" onClick={()=>signIn()}>{t('로그인','Sign in')}</button>}<span className="badge neutral">DEMO</span><select aria-label="Language" value={lang} onChange={e=>setLang(e.target.value)}><option value="ko">한국어</option><option value="en">English</option></select><span className="avatar mini">SA</span></div></header>
  <div className="content">
  <div className="page-title"><div><div className="eyebrow">CLOUD SIGNALS. BUSINESS CONTEXT.</div><h1>{tab==='overview'?t('비용 너머의 비즈니스 가치','See the business behind your cloud.'):tab==='simulator'?t('시나리오 시뮬레이터','Scenario simulator'):nav.find(n=>n[0]===tab)?.[2]}</h1><p>{subtitle[tab]||t('인프라 비용, 서비스 품질, 비즈니스 성과를 하나의 근거로 연결합니다.','Connect cloud spend, service quality, and business outcomes with evidence.')}</p></div><div className="export-menu"><button className="button secondary" aria-haspopup="menu" aria-expanded={exportOpen} onClick={()=>setExportOpen(!exportOpen)}><Icon name="book" size={17}/>{t('근거 내보내기','Export evidence')} ▾</button>{exportOpen&&<div className="export-options" role="menu">{[['json','JSON',()=>exportJson(report())],['html',t('HTML 보고서','HTML report'),()=>exportHtml(report())],['print',t('PDF 저장 · 프린터','PDF / Printer'),()=>exportPrint(report())]].map(([id,label,fn])=><button role="menuitem" key={id as string} onClick={()=>{(fn as ()=>void)();setExportOpen(false)}}>{label as string}</button>)}</div>}</div></div>
  {(tab==='simulator'||tab==='studio')&&<><div className="sample-banner"><span className="badge amber">{t('시뮬레이션','SIMULATED')}</span><span>{t('모든 지표·비용은 생성된 샘플입니다. 실제 AWS 청구·운영 데이터가 아닙니다.','All metrics and costs are generated samples, not observed AWS billing or telemetry.')}</span>{demo&&<span>{t('로그인 없이 체험 중입니다. 변경 사항은 이 브라우저에만 저장됩니다.','You are exploring without signing in. Changes stay in this browser.')}</span>}<span className="banner-date">UTC · Sep 2026</span></div>
  <div className="filters"><label>{t('서비스 그룹','Service group')}<select value={service} onChange={e=>setService(e.target.value)}><option value="checkout">Checkout · app:commerce</option><option value="catalog">Catalog · app:commerce</option></select></label><label>{t('분석 기간','Window')}<select value={days} onChange={e=>setDays(Number(e.target.value))}>{[7,14,30].map(d=><option key={d} value={d}>{d}{t('일',' days')}</option>)}</select></label><label>{t('샘플 시나리오','Sample scenario')}<select value={scenario} onChange={e=>setScenario(e.target.value)}><option value="baseline">{t('정상 운영','Baseline')}</option><option value="incident">{t('최근 3일 결제 장애','Checkout incident · last 3 days')}</option><option value="empty">{t('비즈니스 이벤트 없음','Missing business events')}</option></select></label><div className="filter-status"><span className="status-dot"/>{loading?t('계산 중','Computing'):t('계산 근거 추적 가능','Traceable calculations')}</div></div></>}
  {tab==='business'&&<Business santa={santa} t={t} en={en}/>}
  {tab==='map'&&<Lineage santa={santa} t={t} en={en}/>}
- {tab==='live'&&<LivePanel t={t} en={en} signedIn={signedIn()||import.meta.env.DEV} onSignIn={()=>signIn()} request={api} publicRequest={publicApi}/>}
+ {tab==='live'&&<LivePanel t={t} en={en} publicRequest={publicApi} onConnect={()=>setTab('connect')}/>}
+ {tab==='connect'&&<Workspace t={t} en={en} signedIn={signedIn()||import.meta.env.DEV} onSignIn={()=>signIn()} allowSignIn={signInVisible()} request={api} days={7}/>}
  {error&&<div className="error" role="alert">{error}<button onClick={()=>location.reload()}>{t('다시 연결','Reconnect')}</button></div>}
  <Progress active={loading&&(tab==='simulator'||tab==='studio')} expectedMs={demo?700:2500} steps={[t('선택한 범위를 불러오는 중','Loading the selected scope'),t('KPI 계산 중','Calculating KPIs'),t('근거 정리 중','Assembling evidence')]} t={t}/>
  {tab==='overview'&&<Executive santa={santa} t={t} en={en} go={setTab}/>}
