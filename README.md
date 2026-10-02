@@ -31,6 +31,10 @@ short instructions the coding agents followed inside each module.
 
 ## Architecture
 
+![CloudOutcome architecture](docs/architecture.png)
+
+Editable source with step-by-step slides: [`docs/architecture.pptx`](docs/architecture.pptx).
+
 ```mermaid
 flowchart LR
   U[Visitor / judge] --> A[AWS Amplify Hosting<br/>React SPA]
